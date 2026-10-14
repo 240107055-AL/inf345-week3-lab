@@ -183,6 +183,8 @@ def block_healthz(path):
     runner = os.path.join(path, "scripts", "run.sh")
     if not os.path.isfile(runner):
         return 0, "scripts/run.sh does not exist"
+    if not os.access(runner, os.X_OK):
+        return 0, "scripts/run.sh is not executable (chmod +x)"
     port = free_port()
     proc = subprocess.Popen(["./scripts/run.sh"], cwd=path,
                             env={**os.environ, "PORT": str(port)},
@@ -434,7 +436,10 @@ def mark(path, as_json=False):
 
     if not report["capped"]:
         for name, fn in BLOCKS:
-            pts, detail = fn(path)
+            try:
+                pts, detail = fn(path)
+            except Exception as e:  # one check that breaks must not cost the other three
+                pts, detail = 0, f"this check could not run: {type(e).__name__}: {e}"
             report["blocks"].append({"name": name, "points": pts, "detail": detail})
             report["score"] += pts
 
